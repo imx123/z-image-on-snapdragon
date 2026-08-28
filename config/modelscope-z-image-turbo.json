@@ -1,0 +1,10 @@
+{
+  "source": "modelscope",
+  "model_id": "Tongyi-MAI/Z-Image-Turbo",
+  "revision": "master",
+  "snapshot_root": "E:/zimage-runtime/models/z-image-turbo/models/Tongyi-MAI--Z-Image-Turbo/snapshots/master",
+  "target": {"width": 512, "height": 512, "batch": 1, "steps": 8, "latent": [1, 16, 64, 64], "conditioning": [1, 512, 2560]},
+  "components": {"text_encoder": {"type": "Qwen3", "layers": 36, "hidden_size": 2560, "parameters": 4000000000}, "transformer": {"layers": 30, "hidden_size": 3840, "heads": 30, "parameters": 6150000000}, "vae": {"latent_channels": 16, "downsample": 8, "parameters": 84000000}},
+  "memory_policy": {"text_encoder": "quantize-and-cache-conditioning", "transformer": "weight-only-int4-or-int8-with-fp16-activations", "vae": "fp16"},
+  "backends": {"text_encoder": "qnn_htp", "transformer": "adreno_gpu", "vae": "adreno_gpu", "scheduler": "cpu"}
+}

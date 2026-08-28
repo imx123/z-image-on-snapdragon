@@ -1,0 +1,48 @@
+# --- 构建产物 ---
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/app/.cxx/
+*.apk
+*.aab
+
+# --- 本地配置(含机器路径) ---
+android/local.properties
+android/debug.keystore
+
+# --- 构建日志(临时调试用,不入库) ---
+android/build_*.txt
+
+# --- 巨型模型/二进制(不入库) ---
+build/
+tools/models/
+output/
+models/
+*.so
+*.ctxbin
+*.onnx
+*.bin
+*.ppm
+*.png
+*.jpg
+
+# --- 模型权重清单(JSON 里可能含路径) ---
+config/*.json
+!config/modelscope-z-image-turbo.json
+
+# --- 备份文件 ---
+*.bak
+*.bak_*
+
+# --- IDE / 系统 ---
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
