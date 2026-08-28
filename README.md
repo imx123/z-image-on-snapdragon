@@ -1,32 +1,34 @@
 # Z-Image on Snapdragon 8 Elite
 
-把阿里 **Tongyi-MAI/Z-Image-Turbo** 文生图模型完整跑在 **OnePlus 13 (SM8750 / Snapdragon 8 Elite)** 手机上：
-CPU tokenizer → Qwen3 文本编码器 (QNN HTP FP16) → Z-Image Transformer DiT (QNN GPU FP32) → FlowMatch Euler 调度器 (CPU) → VAE 解码 (QNN HTP FP16)，全部在 **Android app 内**（无云端）。
+Run Alibaba's **Tongyi-MAI/Z-Image-Turbo** text-to-image model fully on-device on a **OnePlus 13 (SM8750 / Snapdragon 8 Elite)**:
+CPU tokenizer → Qwen3 text encoder (QNN HTP FP16) → Z-Image Transformer DiT (QNN GPU FP32) → FlowMatch Euler scheduler (CPU) → VAE decoder (QNN HTP FP16) — all inside a single **Android app** (no cloud).
 
-已实现：**端到端出图**（512×512，8 步，首帧 ~580s），Material 3 UI，生成历史持久化，采样参数设置。
+Implemented: **end-to-end image generation** (512×512, 8 steps, first frame ~580s), Material 3 UI, persistent generation history, sampling parameter settings.
 
-> **测试环境声明**：本项目仅在 **OnePlus 13 · ColorOS 16.0.9**（SM8750 / Snapdragon 8 Elite）上验证通过。其他设备/系统版本未经测试，QNN 后端行为、LMK 内存上限、驱动兼容性可能不同，无法保证运行结果。
+> **Tested-environment disclaimer**: This project has only been verified on **OnePlus 13 · ColorOS 16.0.9** (SM8750 / Snapdragon 8 Elite). Other devices/OS versions are untested; QNN backend behavior, LMK memory limits, and driver compatibility may differ, and results cannot be guaranteed.
 
-> 模型权重与 Qualcomm QNN SDK 二进制**不随仓库分发**（体积大且含专有许可），首次本地运行需按本文档准备。真实设备地址与路径以你的环境为准。
+> Model weights and Qualcomm QNN SDK binaries are **not distributed with this repository** (large size + proprietary licenses). You must prepare them locally following this guide. All paths below are generic placeholders — replace with your own environment.
 
----
-
-## 目录
-
-1. [架构总览](#1-架构总览)
-2. [前置准备：硬件与软件](#2-前置准备硬件与软件)
-3. [三步跑通：构建 → 部署 → 生成](#3-三步跑通构建--部署--生成)
-4. [模型产物准备（首次一次性）](#4-模型产物准备首次一次性)
-5. [设备端 Runtime 部署](#5-设备端-runtime-部署)
-6. [App 使用说明](#6-app-使用说明)
-7. [性能与调优](#7-性能与调优)
-8. [常见问题 FAQ](#8-常见问题-faq)
-9. [项目结构](#9-项目结构)
-10. [参考文档](#10-参考文档)
+**[中文版 README →](README_cn.md)**
 
 ---
 
-## 1. 架构总览
+## Table of Contents
+
+1. [Architecture Overview](#1-architecture-overview)
+2. [Prerequisites: Hardware & Software](#2-prerequisites-hardware--software)
+3. [Three Steps to Run: Build → Deploy → Generate](#3-three-steps-to-run-build--deploy--generate)
+4. [Preparing Model Artifacts (one-time)](#4-preparing-model-artifacts-one-time)
+5. [On-Device Runtime Deployment](#5-on-device-runtime-deployment)
+6. [App Usage](#6-app-usage)
+7. [Performance & Tuning](#7-performance--tuning)
+8. [FAQ](#8-faq)
+9. [Project Structure](#9-project-structure)
+10. [References](#10-references)
+
+---
+
+## 1. Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -36,7 +38,7 @@ CPU tokenizer → Qwen3 文本编码器 (QNN HTP FP16) → Z-Image Transformer D
 │  │  MainActivity │──▶│  JNI  zimage_runtime.cpp         │    │
 │  │  (Kotlin M3)  │   │  ┌────────────────────────────┐  │    │
 │  └──────────────┘   │  │ CPU: Tokenizer (BPE)        │  │    │
-│                     │  │ CPU: Scheduler (Euler 8步)  │  │    │
+│                     │  │ CPU: Scheduler (Euler 8-step)│  │    │
 │                     │  │ QNN HTP: Qwen3 4.0B FP16    │  │    │
 │                     │  │ QNN GPU: Z-Image 6.15B FP32 │  │    │
 │                     │  │ QNN HTP: VAE Decoder 84M    │  │    │
@@ -45,154 +47,149 @@ CPU tokenizer → Qwen3 文本编码器 (QNN HTP FP16) → Z-Image Transformer D
 └─────────────────────────────────────┼───────────────────────┘
                                       │
               ┌───────────────────────┼───────────────────────┐
-              │  QNN SDK (设备端)      │  模型产物 (设备端)      │
-              │  libQnnHtp/Gpu.so     │  12 段 transformer     │
-              │  + skel/hexagon       │  ctxbin  (~25GB)       │
+              │  QNN SDK (on-device)  │  Model artifacts      │
+              │  libQnnHtp/Gpu.so     │  12 transformer       │
+              │  + skel/hexagon       │  ctxbin (~25GB)       │
               └───────────────────────┴───────────────────────┘
 ```
 
-| 组件 | 参数量 | 后端/精度 | 状态 |
+| Component | Params | Backend / Precision | Status |
 |---|---|---|---|
-| Tokenizer (Qwen BPE + chat template) | - | C++ CPU（APK assets 内嵌词表） | ✅ 与 HF 输出一致 |
-| Qwen3 文本编码器 | 4.0B | QNN **HTP FP16**（7 段） | ✅ corr=0.977 |
-| Z-Image Transformer (DiT) | 6.15B | QNN **GPU FP32**（12 段） | ✅ corr=0.999996 |
-| Scheduler (FlowMatchEuler) | - | C++ CPU（shift=3, 8 步） | ✅ |
+| Tokenizer (Qwen BPE + chat template) | - | C++ CPU (vocab bundled in APK assets) | ✅ matches HF output |
+| Qwen3 text encoder | 4.0B | QNN **HTP FP16** (7 segments) | ✅ corr=0.977 |
+| Z-Image Transformer (DiT) | 6.15B | QNN **GPU FP32** (12 segments) | ✅ corr=0.999996 |
+| Scheduler (FlowMatchEuler) | - | C++ CPU (shift=3, 8 steps) | ✅ |
 | VAE Decoder | 84M | QNN **HTP FP16** | ✅ |
 
-**为什么 Transformer 用 GPU FP32？** 全 FP16 在 QNN 的 MatMul/attention 投影累加溢出成 inf/NaN（PC ORT 同模型有限）。FP32 完全消除（corr=0.999996）。HTP 对 FP32 图仍走内部 FP16 路径也 NaN，所以 transformer 是 **GPU 专用产物**。
+**Why GPU FP32 for the transformer?** Full FP16 overflows to inf/NaN in QNN's MatMul/attention projection accumulation (the same model is finite on PC ORT). FP32 eliminates this entirely (corr=0.999996). HTP still routes FP32 graphs through an internal FP16 path and NaNs, so the transformer is a **GPU-only artifact**.
 
-**为什么 12 段？** 6-layer FP32 段 model.bin 达 4.34GB，超过 aarch64 链接器相对寻址 4GB 上限，3-layer 段 2.17GB 可链接。
-
----
-
-## 2. 前置准备：硬件与软件
-
-### 硬件
-
-| 项 | 要求 |
-|---|---|
-| 手机 | OnePlus 13（ColorOS 16.0.9，**本项目唯一验证环境**）/ 理论上 SM8750 设备可用（Snapdragon 8 Elite，Adreno 830 GPU + Hexagon HTP v79） |
-| 手机存储 | ≥ 60GB 空闲（模型产物 ~25GB ctxbin + ~40GB .so） |
-| PC | Windows（本流程验证于 Windows 11 + Git Bash），USB 调试开启 |
-
-### 软件
-
-| 项 | 说明 |
-|---|---|
-| Android SDK + NDK + CMake | 用于构建 APK |
-| JDK 17 | 构建 Gradle 用（Microsoft OpenJDK 17 已验证） |
-| Gradle 8.11.1 | wrapper 已配置 |
-| adb | Android 平台工具 |
-| QNN / QAIRT SDK | 2.49.0（Qualcomm AI Engine Direct） |
-| Python 3.10+ | 模型导出/转换脚本用（torch/diffusers/transformers/onnxruntime） |
-
-> 真实路径（本机）：
-> - QAIRT: `E:\...\zimage-runtime\qairt\qairt\2.49.0.260730`
-> - QNN SDK junction（无空格，构建脚本用）: `E:\qnn`
-> - QAIRT Python: `E:\...\zimage-runtime\python312\python.exe`
-> - JDK 17: `C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot`
+**Why 12 segments?** A 6-layer FP32 segment's model.bin reaches 4.34GB, exceeding the aarch64 linker's 4GB relative-addressing limit; 3-layer segments at 2.17GB link fine.
 
 ---
 
-## 3. 三步跑通：构建 → 部署 → 生成
+## 2. Prerequisites: Hardware & Software
 
-### 3.1 构建 APK
+### Hardware
+
+| Item | Requirement |
+|---|---|
+| Phone | OnePlus 13 (ColorOS 16.0.9, **the only verified environment**) / theoretically any SM8750 device (Snapdragon 8 Elite: Adreno 830 GPU + Hexagon HTP v79) |
+| Phone storage | ≥ 60GB free (~25GB ctxbin + ~40GB .so model artifacts) |
+| PC | Windows (validated on Windows 11 + Git Bash), USB debugging enabled |
+
+### Software
+
+| Item | Notes |
+|---|---|
+| Android SDK + NDK + CMake | To build the APK |
+| JDK 17 | For Gradle build (Microsoft OpenJDK 17 verified) |
+| Gradle 8.11.1 | Via your local Gradle install (the project has no wrapper) |
+| adb | Android platform tools |
+| QNN / QAIRT SDK | 2.49.0 (Qualcomm AI Engine Direct) |
+| Python 3.10+ | For model export/conversion scripts (torch/diffusers/transformers/onnxruntime) |
+
+> All paths are generic placeholders — replace with your environment.
+
+---
+
+## 3. Three Steps to Run: Build → Deploy → Generate
+
+### 3.1 Build the APK
 
 ```bash
 cd android
-# 首次设置环境（每个新 shell）
-export GRADLE_USER_HOME='E:\projects\zimage on phone\zimage-runtime\gradle-home'
-export JAVA_HOME='C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot'
-# 构建（增量 ~5s）
-'/c/Users/Max/.gradle/wrapper/dists/gradle-8.11.1-bin/bpt9gzteqjrbo1mjrsomdt32c/gradle-8.11.1/bin/gradle.bat' assembleDebug
+# Build with your local Gradle 8.11.1 (incremental ~5s)
+gradle assembleDebug
 ```
 
-产物：`android/app/build/outputs/apk/debug/app-debug.apk`
+> Make sure JDK 17, Gradle 8.11.1, and adb are set up on your PATH before building.
 
-### 3.2 安装启动
+Output: `android/app/build/outputs/apk/debug/app-debug.apk`
+
+### 3.2 Install & Launch
 
 ```bash
-export MSYS_NO_PATHCONV=1   # git-bash 必需，否则 /data 路径被转换
+export MSYS_NO_PATHCONV=1   # required in git-bash, otherwise /data paths get mangled
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell am force-stop com.example.zimage
 adb shell am start -n com.example.zimage/.MainActivity
 ```
 
-### 3.3 生成一张图
+### 3.3 Generate an Image
 
-1. 打开 app，等「正在加载运行时…」结束（首次冷启恢复 ctxbin 约 1-2 分钟）
-2. 输入提示词（支持中英文，如 `a red paper lantern` / `海滩边玩水的少女`）
-3. 点「生成」→ 环心计时开始，底部进度条显示当前阶段
-4. 完成后图片显示在画布，自动存入历史栏（app 私有目录，重启不丢）
-5. 长按历史缩略图 → 保存到相册 / 分享 / 删除
+1. Open the app and wait for "loading runtime…" to finish (first cold start restores ctxbin, ~1-2 min)
+2. Enter a prompt (Chinese and English supported, e.g. `a red paper lantern` / `海滩边玩水的少女`)
+3. Tap **Generate** — timer starts in the ring center, bottom bar shows the current stage
+4. When done, the image appears on the canvas and is auto-saved to history (app-private dir, survives restart)
+5. Long-press a history thumbnail → Save to gallery / Share / Delete
 
 ---
 
-## 4. 模型产物准备（首次一次性）
+## 4. Preparing Model Artifacts (one-time)
 
-模型权重与 QNN SDK **不随仓库分发**。首次运行需完成转换（参考 `docs/gpu-backend-build.md` 与 `docs/backend-plan.md` 全流程），得到以下产物：
+Model weights and the QNN SDK are **not distributed with this repo**. You must convert them once before first run (see `docs/gpu-backend-build.md` and `docs/backend-plan.md` for the full workflow).
 
-### 4.1 模型来源
+### 4.1 Model Source
 
-- 模型：ModelScope **Tongyi-MAI/Z-Image-Turbo**（`tools/download_model.py` 用 ModelScope 拉取，配置见 `config/modelscope-z-image-turbo.json`）
-- 参考实现：diffusers `ZImagePipeline`（scheduler 配置 shift=3.0、VAE scaling_factor=0.3611 等来自模型仓 config.json）
+- Model: ModelScope **Tongyi-MAI/Z-Image-Turbo** (fetched via `tools/download_model.py`; config in `config/modelscope-z-image-turbo.json`)
+- Reference implementation: diffusers `ZImagePipeline` (scheduler shift=3.0, VAE scaling_factor=0.3611, etc. from the model repo's config.json)
 
-### 4.2 转换产物清单（build/ 下）
+### 4.2 Conversion Artifacts (under build/)
 
-| 目录 | 内容 | 用途 |
+| Directory | Content | Purpose |
 |---|---|---|
-| `build/android/jniLibs-transformer-v10-fp32/arm64-v8a/` | v10 FP32 全 12 段 .so（~23GB） | transformer（GPU） |
-| `build/android/jniLibs-text-fp16/arm64-v8a/` | text embedding + 6 组 .so | 文本编码器（HTP） |
-| `build/android/jniLibs/arm64-v8a/libqnn_vae_shiftfix.so` | VAE 修正版 | VAE（HTP） |
-| `build/transformer_freqs_qnn/unified_freqs_f32_nhwc.raw` | RoPE 频率表 | transformer 输入 |
-| `build/text_encoder_precomp/` | cos/sin/causal_mask raw | text 输入 |
-| `android/app/src/main/assets/qwen_vocab.tsv` + `qwen_merges.txt` | tokenizer 词表（已入库） | tokenizer |
+| `build/android/jniLibs-transformer-v10-fp32/arm64-v8a/` | v10 FP32 all 12 segments .so (~23GB) | transformer (GPU) |
+| `build/android/jniLibs-text-fp16/arm64-v8a/` | text embedding + 6 groups .so | text encoder (HTP) |
+| `build/android/jniLibs/arm64-v8a/libqnn_vae_shiftfix.so` | VAE fixed version | VAE (HTP) |
+| `build/transformer_freqs_qnn/unified_freqs_f32_nhwc.raw` | RoPE frequency table | transformer input |
+| `build/text_encoder_precomp/` | cos/sin/causal_mask raw | text inputs |
+| `android/app/src/main/assets/qwen_vocab.tsv` + `qwen_merges.txt` | tokenizer vocab (already in repo) | tokenizer |
 
-> 转换工具链全部在 `tools/`（export_*.py / convert_*.ps1 / generate_*_calibration.py），转换注意 `--preserve_io datatype` 与 3-layer 分段（见 docs）。
+> Toolchain lives in `tools/` (export_*.py / convert_*.ps1 / generate_*_calibration.py). Remember `--preserve_io datatype` and 3-layer segmentation (see docs).
 
-### 4.3 预编译 ctxbin（关键优化，可选但强烈建议）
+### 4.3 Precompile ctxbin (key optimization, optional but strongly recommended)
 
-app 内编译 12 段 transformer 会触发 ColorOS LMK（内存墙）。**正解：在设备上用 shell 进程预编译**（不受 app LMK 限制）：
+Compiling the 12 transformer segments inside the app triggers ColorOS LMK (memory wall). **The fix: precompile on-device in a shell process** (not subject to the app's LMK limit):
 
 ```bash
-# 设备端（/data/local/tmp 下，shell 权限）
+# On device (under /data/local/tmp, shell permission)
 adb shell 'cd /data/local/tmp/gputest && ./qnn-context-binary-generator \
   --model frontend.so --backend libQnnGpu.so \
   --binary_file frontend.ctxbin --output_dir ./ctxbins'
-# 产物 frontend.ctxbin.bin（注意自动加 .bin 后缀），改名后部署
+# Output is frontend.ctxbin.bin (note the auto-appended .bin suffix); rename, then deploy
 ```
 
-全部 12 段生成后放到设备外部目录：
+After generating all 12 segments, place them in the device's external dir:
 
 ```bash
 adb shell 'cp /data/local/tmp/ctxbins/*.ctxbin \
   /storage/emulated/0/Android/data/com.example.zimage/files/zimage-runtime/segbin/'
 ```
 
-> ⚠️ 工具只接受**相对路径**（须 cd 进输出目录）；输出自动带 `.bin` 后缀需改名。完整过程见 `PROJECT_HANDOFF.md` §9。
+> ⚠️ The tool only accepts **relative paths** (cd into the output dir first); outputs get an automatic `.bin` suffix that must be renamed. Full walkthrough in `PROJECT_HANDOFF.md` §9.
 
 ---
 
-## 5. 设备端 Runtime 部署
+## 5. On-Device Runtime Deployment
 
-模型 .so / assets 通过 `tools/deploy_android_runtime.ps1` 推到设备外部目录（app 首启按"大小不同才复制"拷入私有目录）：
+Model .so / assets are pushed to the device external dir via `tools/deploy_android_runtime.ps1` (the app copies them into its private dir on first launch, only when sizes differ):
 
 ```bash
-cd 'E:\projects\zimage on phone\zimage on phone'
+cd <project-root>
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/deploy_android_runtime.ps1
-# GPU/FP32 时覆盖（默认是 FP16 v6）：
+# Override for GPU/FP32 (default is FP16 v6):
 powershell.exe -File tools/deploy_android_runtime.ps1 `
   -TransformerLibRoot build\android\jniLibs-transformer-v10-fp32 `
   -TextEncoderLibRoot build\android\jniLibs-text-fp16
 ```
 
-切换后端（gpu=当前生产配置）：
+Switch backend (gpu = current production config):
 
 ```bash
 adb shell "printf 'gpu' > /storage/emulated/0/Android/data/com.example.zimage/files/probe/backend.txt"
 ```
 
-查看运行日志 / 进度：
+View runtime log / progress:
 
 ```bash
 adb shell 'run-as com.example.zimage cat files/zimage-runtime/jni.log'
@@ -201,106 +198,107 @@ adb shell 'run-as com.example.zimage cat files/zimage-runtime/progress.txt'
 
 ---
 
-## 6. App 使用说明
+## 6. App Usage
 
-Material 3 UI，状态机 `INITIALIZING → IDLE → GENERATING → DONE` 驱动：
+Material 3 UI driven by the state machine `INITIALIZING → IDLE → GENERATING → DONE`:
 
-| 界面元素 | 功能 |
+| UI element | Function |
 |---|---|
-| 提示词输入框 | 多行，支持自动换行 |
-| 「生成」按钮 | 开始生成（GENERATING 时禁用） |
-| 画布 | 三态：空态 / 进度环（环心计时）/ 结果图 |
-| 进度环 | 环心显示生成耗时 mm:ss |
-| 历史栏 | 每次生成自动保存（时间戳命名 PNG），重启不丢 |
-| 历史长按 | 保存到相册 / 分享 / 删除 |
-| 设置（齿轮） | 采样步数 1-16 / 随机种子开关 / 固定种子值 |
-| 诊断（ℹ️） | 复制全部诊断信息 / 导出日志到 Download/Z-Image/ |
-| 图片点击 | 全屏预览 |
+| Prompt input | Multi-line, wraps automatically |
+| Generate button | Starts generation (disabled while GENERATING) |
+| Canvas | Three states: empty / progress ring (elapsed mm:ss in center) / result image |
+| Progress ring | Shows elapsed generation time in the center |
+| History bar | Every generation auto-saved (timestamped PNG), survives restart |
+| History long-press | Save to gallery / Share / Delete |
+| Settings (gear) | Sampling steps 1-16 / random seed toggle / fixed seed value |
+| Diagnostics (ℹ️) | Copy all diagnostics / export log to Download/Z-Image/ |
+| Tap image | Fullscreen preview |
 
 ---
 
-## 7. 性能与调优
+## 7. Performance & Tuning
 
-| 指标 | 当前值 | 目标 |
+| Metric | Current | Target |
 |---|---|---|
-| 首帧（冷启） | ~580s（首张 583.7s，次张 522.6s） | <60s |
-| transformer 占比 | 558.9s / 583.7s（96%） | - |
-| 内存峰值 | RSS 10GB → 200MB（rebuild 后回落） | <8GB 安全线 |
+| First frame (cold start) | ~580s (583.7s first image, 522.6s second) | <60s |
+| Transformer share | 558.9s / 583.7s (96%) | - |
+| Peak memory | RSS 10GB → 200MB (after rebuild) | <8GB safety line |
 
-**已实现的优化**：
-- 每 4 段 release 后销毁重建 GPU backend（kgsl dma-buf 缓存挂在 backend 生命周期上，RSS 瞬间回落）
-- 12 段 ctxbin 预编译（app 内无编译峰值）
+**Optimizations already in place**:
+- Destroy + rebuild the GPU backend every 4 released segments (kgsl dma-buf cache hangs on the backend lifecycle; RSS drops instantly)
+- All 12 ctxbin segments precompiled (no compile peak inside the app)
 
-**下一步优化方向**：
-1. Kernel repo 磁盘缓存（`QNN_GPU_CONTEXT_CONFIG_OPTION_KERNEL_REPO_DIR`），backend 重建后 kernel 秒载
-2. rebuild 间隔 4→5 段（峰值 ~12GB 边缘）
-3. 首帧 580s → 目标 3-5 分钟
+**Next optimization directions**:
+1. Kernel repo disk cache (`QNN_GPU_CONTEXT_CONFIG_OPTION_KERNEL_REPO_DIR`) — kernel loads from disk after backend rebuild
+2. Rebuild interval 4→5 segments (peak ~12GB, borderline)
+3. First frame 580s → target 3-5 min
 
 ---
 
-## 8. 常见问题 FAQ
+## 8. FAQ
 
-**Q: 生成时 app 被杀（无闪退界面，进程消失）**
-A: ColorOS LMK 杀进程。前台 app 内存上限约 8-9GB。确认已用预编译 ctxbin（§4.3），且 12 段按 4 段间隔 rebuild。
+**Q: The app is killed during generation (no crash dialog, process vanishes)**
+A: ColorOS LMK killed it. Foreground app memory ceiling is ~8-9GB. Make sure precompiled ctxbin is used (§4.3) and segments rebuild every 4.
 
-**Q: 报 6001 INVALID_HANDLE**
-A: 图操作句柄必须来自图所属的 `QnnSet`（双 backend 下混用全局句柄会这样）。另外 `GraphInfo` 字段顺序必须与 SDK 的 `QnnWrapperUtils.hpp` 一致（`{graph, graphName, inputTensors, ...}`）。
+**Q: Error 6001 INVALID_HANDLE**
+A: Graph operations must use handles from the graph's owning `QnnSet` (mixing global handles in dual-backend mode causes this). Also, the `GraphInfo` field order must match the SDK's `QnnWrapperUtils.hpp` (`{graph, graphName, inputTensors, ...}`).
 
-**Q: 输出全垃圾/NaN**
-A: 检查 I/O dtype 转换是否加了 `--preserve_io datatype`；Transformer 必须 FP32（FP16 在 QNN 累加溢出）；VAE 直接喂原始 latent（shiftfix 图内已含归一化，勿二次处理）。
+**Q: Garbage/NaN output**
+A: Check I/O dtype conversions use `--preserve_io datatype`; the transformer must be FP32 (FP16 overflows in QNN accumulation); feed raw latents to the VAE (the shiftfix graph already normalizes — don't re-normalize).
 
 **Q: `libQnnHtp.so` transport 14001**
-A: `ADSP_LIBRARY_PATH` 必须指向含 `libQnnHtpV79Skel.so` 的目录（设备 CLI 验证时）。
+A: `ADSP_LIBRARY_PATH` must point to the dir containing `libQnnHtpV79Skel.so` (when validating via device CLI).
 
-**Q: 第三方安装器重装后 app 无法生成**
-A: 重装会清空外部数据目录。恢复：116 个 libs（含 hexagon-v79 skel）+ 8 assets + backend.txt=gpu + 12 个 ctxbin。`libQnnSystem.so` 必须用 aarch64-android 完整版（4,072,160 字节），裁剪版（217KB）会导致 binaryInfo 全失败。
+**Q: Third-party installer reinstall breaks generation**
+A: Reinstall wipes the external data dir. Restore: 116 libs (incl. hexagon-v79 skel) + 8 assets + backend.txt=gpu + 12 ctxbin. `libQnnSystem.so` must be the full aarch64-android build (4,072,160 bytes) — the trimmed 217KB version makes all binaryInfo calls fail.
 
-**Q: adb 命令报 `no such file or directory`**
-A: git-bash 需 `export MSYS_NO_PATHCONV=1`，否则 `/data/...` 路径被 MSYS 转换。
+**Q: adb reports `no such file or directory`**
+A: In git-bash, `export MSYS_NO_PATHCONV=1`, otherwise `/data/...` paths get MSYS-mangled.
 
-**Q: patch 后构建失败**
-A: patch 工具会把行尾转 CRLF，`tr -d '\r' < f > /tmp/x && mv /tmp/x f` 归一化（C++ 文件必须 LF）。
+**Q: Build fails after patching**
+A: The patch tool converts line endings to CRLF; normalize with `tr -d '\r' < f > /tmp/x && mv /tmp/x f` (C++ files must be LF).
 
 ---
 
-## 9. 项目结构
+## 9. Project Structure
 
 ```
-├── android/                      # Android Studio 工程
+├── android/                      # Android Studio project
 │   ├── app/src/main/
 │   │   ├── java/com/example/zimage/
-│   │   │   ├── MainActivity.kt   # M3 UI + 状态机 + 生成调度
-│   │   │   ├── HistoryStore.kt   # 持久化历史（时间戳 PNG + JSON 索引）
-│   │   │   ├── SettingsStore.kt  # 采样参数持久化
-│   │   │   ├── UiUtil.kt         # 保存/分享/预览/剪贴板/日志导出
-│   │   │   └── ZImageRuntime.kt  # JNI 封装
+│   │   │   ├── MainActivity.kt   # M3 UI + state machine + generation dispatch
+│   │   │   ├── HistoryStore.kt   # persistent history (timestamped PNG + JSON index)
+│   │   │   ├── SettingsStore.kt  # sampling params persistence
+│   │   │   ├── UiUtil.kt         # save/share/preview/clipboard/log export
+│   │   │   └── ZImageRuntime.kt  # JNI wrapper
 │   │   ├── cpp/
-│   │   │   ├── zimage_runtime.cpp # ★ 核心：tokenizer→text→DiT→scheduler→VAE
+│   │   │   ├── zimage_runtime.cpp # ★ core: tokenizer→text→DiT→scheduler→VAE
 │   │   │   ├── CMakeLists.txt
-│   │   │   └── vndksupport.*      # QNN 库链接支持
-│   │   ├── assets/               # tokenizer 词表 + GPU probe（已入库）
-│   │   └── res/                  # M3 主题/布局/图标/文案
+│   │   │   └── vndksupport.*      # QNN lib linking support
+│   │   ├── assets/               # tokenizer vocab + GPU probe (in repo)
+│   │   └── res/                  # M3 theme/layouts/icons/strings
 │   ├── build.gradle / settings.gradle / gradle.properties
-│   └── local.properties          # 本机 SDK 路径（不入库）
-├── tools/                        # 模型导出/量化/转换/部署脚本（46 个）
-├── config/                       # ModelScope 模型清单
-├── docs/                         # bring-up 日志、backend 构建、IO 契约
-├── PROJECT_HANDOFF.md            # ★ 完整交接文档（含全部踩坑记录）
-└── README.md
+│   └── local.properties          # local SDK path (not in repo)
+├── tools/                        # model export/quantize/convert/deploy scripts (46)
+├── config/                       # ModelScope model manifest
+├── docs/                         # bring-up logs, backend build, IO contract
+├── PROJECT_HANDOFF.md            # ★ full handoff doc (all pitfalls & fixes)
+├── README.md                     # this file (English)
+└── README_cn.md                  # Chinese version
 ```
 
 ---
 
-## 10. 参考文档
+## 10. References
 
-- `PROJECT_HANDOFF.md` — 完整交接文档（架构细节、数值契约、全部踩坑与解法）
-- `docs/gpu-backend-build.md` — GPU backend v10 转换到设备验证全套命令
-- `docs/backend-plan.md` — 组件方案
-- `docs/qnn-v3-io-contract.md` — QNN I/O 布局契约
-- diffusers 参考：`pipeline_z_image.py` + `scheduling_flow_match_euler_discrete.py`
+- `PROJECT_HANDOFF.md` — full handoff doc (architecture details, numeric contracts, every pitfall & fix)
+- `docs/gpu-backend-build.md` — GPU backend v10 conversion→device validation, full command set
+- `docs/backend-plan.md` — component plan
+- `docs/qnn-v3-io-contract.md` — QNN I/O layout contract
+- diffusers reference: `pipeline_z_image.py` + `scheduling_flow_match_euler_discrete.py`
 
 ---
 
-## License / 免责
+## License / Disclaimer
 
-本仓库**不含**模型权重与 QNN SDK 二进制（Qualcomm 专有）。模型权重归阿里 ModelScope/Tongyi-MAI 许可管理，QNN SDK 归 Qualcomm 许可管理。使用前请遵守各自许可条款。
+This repository does **not** contain model weights or QNN SDK binaries (Qualcomm proprietary). Model weights are governed by Alibaba ModelScope/Tongyi-MAI licenses; the QNN SDK is governed by Qualcomm's license. Respect each license before use.
