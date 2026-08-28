@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.31.6)
+project(zimage_runtime)
+add_library(zimage_runtime SHARED zimage_runtime.cpp)
+target_include_directories(zimage_runtime PRIVATE "E:/qnn/include" "E:/qnn/include/QNN")
+find_library(log_lib log)
+target_link_libraries(zimage_runtime ${log_lib} dl)
