@@ -303,4 +303,17 @@ A: The patch tool converts line endings to CRLF; normalize with `tr -d '\r' < f 
 
 ## License / Disclaimer
 
-This repository does **not** contain model weights or QNN SDK binaries (Qualcomm proprietary). Model weights are governed by Alibaba ModelScope/Tongyi-MAI licenses; the QNN SDK is governed by Qualcomm's license. Respect each license before use.
+**Project code** (Kotlin sources, `zimage_runtime.cpp`, resources, scripts, docs)
+is licensed under the **Apache License 2.0** — see [`LICENSE`](LICENSE).
+Copyright © 2026 imx123.
+
+> All code was produced through vibe coding and is **not actively maintained**;
+> provided as-is, use at your own risk (see disclaimer at the top).
+
+**Not covered by this license**:
+- Model weights (Z-Image-Turbo) — governed by ModelScope/Tongyi-MAI licenses.
+- Qualcomm QNN SDK binaries (`libQnnHtpV79Stub.so` in the APK) — Qualcomm
+  proprietary; distributed in object code only, as part of the app, per the
+  Qualcomm AI Stack License. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+- Bundled third-party components (LiteRT, Material 3, AndroidX, Qwen tokenizer
+  data) — Apache 2.0, see `THIRD_PARTY_NOTICES.md`.

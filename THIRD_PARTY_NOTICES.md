@@ -68,7 +68,9 @@ notices within it are in `NOTICE.txt`.
 ## Project's own code
 
 - `libzimage_runtime.so` and all Kotlin sources are original work of this
-  project. License: see `LICENSE` (if present) or contact the author.
+  project, licensed under the **Apache License 2.0** —
+  https://www.apache.org/licenses/LICENSE-2.0 (see `LICENSE`).
+  Copyright © 2026 imx123.
 
 ---
 

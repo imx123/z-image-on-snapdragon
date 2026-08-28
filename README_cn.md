@@ -302,4 +302,15 @@ A: patch 工具会把行尾转 CRLF，`tr -d '\r' < f > /tmp/x && mv /tmp/x f` �
 
 ## License / 免责
 
-本仓库**不含**模型权重与 QNN SDK 二进制（Qualcomm 专有）。模型权重归阿里 ModelScope/Tongyi-MAI 许可管理，QNN SDK 归 Qualcomm 许可管理。使用前请遵守各自许可条款。
+**项目自身代码**（Kotlin 源码、`zimage_runtime.cpp`、资源、脚本、文档）采用
+**Apache License 2.0** 授权 — 见 [`LICENSE`](LICENSE)。Copyright © 2026 imx123。
+
+> 全部代码由 vibecoding（AI 辅助）产出，**无后续维护**，按现状提供，自行承担风险（见文首声明）。
+
+**不适用本许可的部分**：
+- 模型权重（Z-Image-Turbo）— 归 ModelScope/Tongyi-MAI 许可管理。
+- Qualcomm QNN SDK 二进制（APK 内 `libQnnHtpV79Stub.so`）— Qualcomm 专有；
+  仅以目标代码形式、作为 app 一部分分发，遵循 Qualcomm AI Stack License。见
+  [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+- 内置第三方组件（LiteRT、Material 3、AndroidX、Qwen tokenizer 数据）— Apache 2.0，
+  见 `THIRD_PARTY_NOTICES.md`。
