@@ -7,6 +7,8 @@ Implemented: **end-to-end image generation** (512×512, 8 steps, first frame ~58
 
 > **Tested-environment disclaimer**: This project has only been verified on **OnePlus 13 · ColorOS 16.0.9** (SM8750 / Snapdragon 8 Elite). Other devices/OS versions are untested; QNN backend behavior, LMK memory limits, and driver compatibility may differ, and results cannot be guaranteed.
 
+> **Maintenance disclaimer**: All code in this project was produced through vibe coding (AI-assisted development) and is **not actively maintained**. It is provided as-is for reference only — use at your own risk. No guarantees of correctness, security, or ongoing fixes.
+
 > Model weights and Qualcomm QNN SDK binaries are **not distributed with this repository** (large size + proprietary licenses). You must prepare them locally following this guide. All paths below are generic placeholders — replace with your own environment.
 
 **[中文版 README →](README_cn.md)**

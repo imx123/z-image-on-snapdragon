@@ -5,6 +5,10 @@ components. The notices below satisfy attribution and notice requirements of
 the respective licenses. **Do not remove or alter these notices when
 redistributing the APK.**
 
+> **Project disclaimer**: All code in this project was produced through
+> vibe coding (AI-assisted development) and is **not actively maintained**.
+> Provided as-is for reference only — use at your own risk.
+
 ---
 
 ## Qualcomm AI Runtime (QAIRT) — Proprietary
