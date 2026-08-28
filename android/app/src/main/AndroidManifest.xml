@@ -1,0 +1,18 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <application android:theme="@style/AppTheme" android:label="Z-Image Snapdragon">
+        <!-- QNN HTP (NPU) requires the CDSP fastRPC transport library. Without
+             this declaration the app cannot dlopen libcdsprpc.so and HTP
+             deviceCreate fails with transport error 4000. -->
+        <uses-native-library android:name="libcdsprpc.so" android:required="false" />
+        <uses-native-library android:name="libadsprpc.so" android:required="false" />
+        <uses-native-library android:name="libsdsprpc.so" android:required="false" />
+        <!-- QNN GPU backend loads the system /vendor/lib64/libOpenCL.so (ICD
+             dispatcher, listed in /vendor/etc/public.libraries.txt). It must NOT
+             be bundled in jniLibs: an APK copy returns clGetPlatformIDs=-1001. -->
+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity>
+    </application>
+</manifest>

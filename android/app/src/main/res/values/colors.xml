@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- API 30 fallback seed color (API 31+ uses wallpaper dynamic color) -->
+    <color name="seed_primary">#4C5FD5</color>
+    <color name="seed_primary_dim">#3A4BAA</color>
+</resources>

@@ -1,0 +1,36 @@
+<resources>
+    <string name="app_name">Z-Image</string>
+    <!-- 主界面 -->
+    <string name="prompt_hint">输入提示词…</string>
+    <string name="generate">生成</string>
+    <string name="generating">生成中…</string>
+    <string name="canvas_empty_title">输入提示词开始生成</string>
+    <string name="canvas_empty_body">输入提示词，点「生成」开始。已生成的图片保存在下方历史栏中。</string>
+    <string name="initializing">正在加载运行时…</string>
+    <string name="diag">诊断</string>
+    <!-- 状态步骤归一化 -->
+    <string name="stage_tokenize">分词</string>
+    <string name="stage_text_encoder">文本编码</string>
+    <string name="stage_denoise_fmt">去噪 %1$s</string>
+    <string name="stage_vae">解码图像</string>
+    <string name="stage_compile_fmt">编译 %1$s</string>
+    <string name="stage_done">完成</string>
+    <!-- 画布操作 -->
+    <string name="save">保存</string>
+    <string name="share">分享</string>
+    <string name="saved_to">已保存到 %1$s</string>
+    <string name="save_failed">保存失败：%1$s</string>
+    <string name="preview_close">关闭</string>
+    <!-- 历史 -->
+    <string name="history_empty">生成历史会显示在这里</string>
+    <!-- 诊断 -->
+    <string name="diag_copy">复制全部</string>
+    <string name="diag_export">导出日志</string>
+    <string name="diag_copied">已复制到剪贴板</string>
+    <string name="diag_exported">已导出到 %1$s</string>
+    <string name="diag_export_failed">导出失败：%1$s</string>
+    <string name="diag_title">诊断信息</string>
+    <!-- 通用 -->
+    <string name="error_title">出错了</string>
+    <string name="ok">好</string>
+</resources>
