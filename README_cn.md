@@ -7,7 +7,7 @@ CPU tokenizer → Qwen3 文本编码器 (QNN HTP FP16) → Z-Image Transformer D
 
 > **测试环境声明**：本项目仅在 **OnePlus 13 · ColorOS 16.0.9**（SM8750 / Snapdragon 8 Elite）上验证通过。其他设备/系统版本未经测试，QNN 后端行为、LMK 内存上限、驱动兼容性可能不同，无法保证运行结果。
 
-> **维护声明**：本项目全部代码由 AI 辅助（vibecoding）产出，**无后续维护计划**。仅供学习参考，**谨慎使用**——不保证正确性、安全性，也不承诺修复问题。
+> **维护声明**：本项目全部代码由 AI 辅助（vibecoding）产出，**无后续维护计划**。仅供学习参考，**谨慎使用**——不保证正确性、安全性，也不承诺修复问题。**如有需要，欢迎 fork 本项目。**
 
 **[English README →](README.md)**
 
