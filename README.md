@@ -5,6 +5,8 @@ CPU tokenizer → Qwen3 文本编码器 (QNN HTP FP16) → Z-Image Transformer D
 
 已实现：**端到端出图**（512×512，8 步，首帧 ~580s），Material 3 UI，生成历史持久化，采样参数设置。
 
+> **测试环境声明**：本项目仅在 **OnePlus 13 · ColorOS 16.0.9**（SM8750 / Snapdragon 8 Elite）上验证通过。其他设备/系统版本未经测试，QNN 后端行为、LMK 内存上限、驱动兼容性可能不同，无法保证运行结果。
+
 > 模型权重与 Qualcomm QNN SDK 二进制**不随仓库分发**（体积大且含专有许可），首次本地运行需按本文档准备。真实设备地址与路径以你的环境为准。
 
 ---
@@ -69,7 +71,7 @@ CPU tokenizer → Qwen3 文本编码器 (QNN HTP FP16) → Z-Image Transformer D
 
 | 项 | 要求 |
 |---|---|
-| 手机 | OnePlus 13 / 其他 SM8750 设备（Snapdragon 8 Elite，Adreno 830 GPU + Hexagon HTP v79） |
+| 手机 | OnePlus 13（ColorOS 16.0.9，**本项目唯一验证环境**）/ 理论上 SM8750 设备可用（Snapdragon 8 Elite，Adreno 830 GPU + Hexagon HTP v79） |
 | 手机存储 | ≥ 60GB 空闲（模型产物 ~25GB ctxbin + ~40GB .so） |
 | PC | Windows（本流程验证于 Windows 11 + Git Bash），USB 调试开启 |
 
